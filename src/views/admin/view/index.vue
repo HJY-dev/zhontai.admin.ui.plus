@@ -8,6 +8,7 @@
         <el-form-item>
           <el-button type="primary" icon="ele-Search" @click="onQuery"> 查询 </el-button>
           <el-button v-auth="'api:admin:view:add'" type="primary" icon="ele-Plus" @click="onAdd"> 新增 </el-button>
+          <el-button v-auth="'api:admin:view:sync'" icon="ele-Refresh" type="danger" @click="onSync">同步视图</el-button>
         </el-form-item>
       </el-form>
     </el-card>
@@ -47,7 +48,7 @@
 
 <script lang="ts" setup name="admin/view">
 import { ref, reactive, onMounted, getCurrentInstance, onBeforeMount, defineAsyncComponent } from 'vue'
-import { ViewListOutput } from '/@/api/admin/data-contracts'
+import { ViewListOutput, ViewSyncInput, ViewSyncDto } from '/@/api/admin/data-contracts'
 import { ViewApi } from '/@/api/admin/View'
 import { listToTree, filterTree } from '/@/utils/tree'
 import { cloneDeep } from 'lodash-es'
@@ -67,6 +68,7 @@ const state = reactive({
   },
   viewTreeData: [] as Array<ViewListOutput>,
   formViewTreeData: [] as Array<ViewListOutput>,
+  formsyncData: {} as ViewSyncInput,
 })
 
 onMounted(() => {
@@ -117,6 +119,39 @@ const onDelete = (row: ViewListOutput) => {
       onQuery()
     })
     .catch(() => {})
+}
+/**
+ * 同步view
+ * name="cloud/category|cloud/category/index|文章分类|480973060259909"
+ */
+const onSync = async () => {
+  const viewFiles = import.meta.glob('/src/views/cloud/**/index.vue', {
+    eager: true,
+    import: 'default',
+  })
+  //打印文件信息
+  //console.log(Object.values(viewFiles))
+  var result: ViewSyncDto[] = []
+  Object.values(viewFiles).forEach((item: any) => {
+    const arr: any = item.name.split('|')
+    const data: ViewSyncDto = {
+      name: arr[0],
+      path: arr[1],
+      label: arr[2],
+      parentId: arr[3],
+    }
+    result.push(data)
+  })
+  state.formsyncData.views = result
+  const res = await new ViewApi()
+    .sync(state.formsyncData)
+    .then(() => {
+      proxy.$modal.msgSuccess('同步成功')
+      onQuery()
+    })
+    .catch((error) => {
+      console.log(error)
+    })
 }
 </script>
 
